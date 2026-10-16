@@ -1,5 +1,5 @@
 import type { Ride, User } from './types';
-export const demoUser: User = { id:'preview', name:'Teman Gowes', email:'contoh@searah.local', city:'Bogor', bike_type:'Road bike', bio:'' };
+export const demoUser: User = { id:'preview', name:'Teman Gowes', username:'temangowes', email:null, city:'Bogor', bike_type:'Road bike', bio:'' };
 export function demoRides(): Ride[] {
   const base = new Date();
   const nextSaturday = (6 - base.getUTCDay() + 7) % 7 || 7;

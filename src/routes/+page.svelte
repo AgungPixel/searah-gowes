@@ -23,7 +23,7 @@
   let authMode = $state('login');
   let authOverlay = $state(false);
   let authName = $state('');
-  let authEmail = $state('');
+  let authUsername = $state('');
   let authPassword = $state('');
   let authError = $state('');
   let authBusy = $state(false);
@@ -44,6 +44,8 @@
   let confirmAction = $state<'delete' | 'cancel' | 'complete' | 'leave' | null>(null);
   let draft = $state(emptyDraft());
   let profileName = $state('');
+  let profileUsername = $state('');
+  let profileEmail = $state('');
   let profileCity = $state('');
   let profileBike = $state('Road bike');
   let profileBio = $state('');
@@ -105,7 +107,7 @@
     catch(err) { bootError=(err as Error).message; }
     finally { loading=false; }
   }
-  function fillProfile() { if(user){profileName=user.name;profileCity=user.city;profileBike=user.bike_type;profileBio=user.bio;} }
+  function fillProfile() { if(user){profileName=user.name;profileUsername=user.username||'';profileEmail=user.email||'';profileCity=user.city;profileBike=user.bike_type;profileBio=user.bio;} }
   onMount(()=> {
     void boot().then(()=> {const id=new URLSearchParams(location.search).get('ride');if(id&&user)void openDetail(id);});
     const timer=setInterval(()=>clock=Date.now(),30000);
@@ -119,7 +121,7 @@
     event.preventDefault();authBusy=true;authError='';
     try {
       // Authentication always uses the real endpoint, including when leaving demo mode.
-      const response=await fetch('/api/auth/'+(authMode==='register'?'register':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:authName,email:authEmail,password:authPassword})});
+      const response=await fetch('/api/auth/'+(authMode==='register'?'register':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:authName,username:authUsername,password:authPassword})});
       const result=await response.json() as {user:User;error?:string};if(!response.ok)throw new Error(result.error);
       isDemo=false;user=result.user;authPassword='';authOverlay=false;detailOpen=false;detail=null;await refreshRides();fillProfile();navigate('dashboard');
       const id=new URLSearchParams(location.search).get('ride');if(id)await openDetail(id);
@@ -187,7 +189,7 @@
   }
   async function saveProfile(event:SubmitEvent) {
     event.preventDefault();profileBusy=true;profileError='';
-    try{const result=await api<{user:User}>('profile','PATCH',{name:profileName,city:profileCity,bike_type:profileBike,bio:profileBio});user=result.user;await refreshRides();notify('Profil berhasil diperbarui.');}catch(err){profileError=(err as Error).message;}finally{profileBusy=false;}
+    try{const result=await api<{user:User}>('profile','PATCH',{name:profileName,username:profileUsername,email:profileEmail,city:profileCity,bike_type:profileBike,bio:profileBio});user=result.user;await refreshRides();notify('Profil berhasil diperbarui.');}catch(err){profileError=(err as Error).message;}finally{profileBusy=false;}
   }
   async function changePassword(event:SubmitEvent) {
     event.preventDefault();passwordBusy=true;passwordError='';
@@ -207,7 +209,7 @@
   <div class="segmented auth-tabs"><button class:active={authMode==='login'} onclick={()=>{authMode='login';authError='';}}>Masuk</button><button class:active={authMode==='register'} onclick={()=>{authMode='register';authError='';}}>Buat akun</button></div>
   <form onsubmit={authenticate} class="form-stack">
     {#if authMode==='register'}<label>Nama lengkap<input name="name" autocomplete="name" bind:value={authName} required minlength="2" maxlength="60" placeholder="Nama panggilan di jalan"/></label>{/if}
-    <label>Email<input type="email" name="email" autocomplete="email" bind:value={authEmail} required maxlength="254" placeholder="kamu@email.com"/></label>
+    <label>Username<input type="text" name="username" autocomplete="username" autocapitalize="none" spellcheck={false} bind:value={authUsername} required minlength={authMode==='register'?3:1} maxlength={authMode==='register'?32:254} pattern={authMode==='register'?String.raw`[A-Za-z0-9][A-Za-z0-9._\-]{2,31}`:undefined} placeholder={authMode==='register'?'Misalnya: agung_gowes':'Masukkan username'}/><small>{authMode==='register'?'3–32 karakter, tanpa spasi. Huruf besar dan kecil dianggap sama.':'Akun yang belum punya username masih bisa masuk dengan email.'}</small></label>
     <label>Password<span class="password-input"><input type={showPassword?'text':'password'} name="password" autocomplete={authMode==='register'?'new-password':'current-password'} bind:value={authPassword} required minlength={authMode==='register'?12:1} maxlength="128" placeholder={authMode==='register'?'Minimal 12 karakter':'Masukkan password'}/><button type="button" onclick={()=>showPassword=!showPassword}>{showPassword?'Sembunyikan':'Lihat'}</button></span></label>
     {#if authError}<p class="error-box" role="alert">{authError}</p>{/if}
     <button class="btn btn-primary full" type="submit" disabled={authBusy}>{authBusy?'Sebentar, ya…':authMode==='register'?'Buat akun & mulai gowes':'Masuk ke planner'}<Icon name="arrow" size={18}/></button>
@@ -245,6 +247,7 @@
     <div class="workspace">
       <header class="topbar"><div class="flex items-center gap-3"><button class="icon-button mobile-menu" aria-label="Buka navigasi" aria-expanded={mobileNav} onclick={()=>mobileNav=!mobileNav}><Icon name="menu"/></button><span class="breadcrumb">Planner <span>/</span> <strong>{view==='profile'?'Profil saya':nav.find(n=>n.id===view)?.label}</strong></span></div><div class="topbar-actions"><span class="topbar-date"><Icon name="calendar" size={15}/>{dateLabel(new Date().toISOString(),true)}</span><button class="btn btn-primary btn-small" onclick={openCreate}><Icon name="plus" size={17}/>Buat gowes</button></div></header>
       {#if isDemo}<div class="demo-banner"><span><strong>Mode demo</strong><span class="demo-extra"> · Semua jadwal dan peserta adalah data contoh.</span></span><button onclick={()=>{authMode='register';authOverlay=true;}}>Buat akun sendiri<Icon name="arrow" size={14}/></button></div>{/if}
+      {#if !isDemo&&!user.username}<div class="demo-banner"><span>Lengkapi username agar selanjutnya bisa masuk tanpa email.</span><button onclick={()=>navigate('profile')}>Atur username<Icon name="arrow" size={14}/></button></div>{/if}
       <main id="main-content" class="main-content">
         {#if view==='dashboard'}
           <div class="page-heading"><div><span class="eyebrow">GOOD DAYS START WITH A RIDE</span><h1>Halo, {user.name.split(' ')[0]}<span class="wave">✳</span></h1><p>Mau ke mana kita di akhir pekan ini?</p></div><div class="week-label"><span class="live-dot"></span>Rencanakan. Kayuh. Nikmati.</div></div>
@@ -269,7 +272,7 @@
           <div class="calendar-layout"><section class="calendar-panel"><div class="calendar-toolbar"><h2>{monthLabel}</h2><div class="flex items-center gap-2"><button class="btn btn-secondary btn-small" onclick={()=>{calendarYear=Number(todayWIB.slice(0,4));calendarMonth=Number(todayWIB.slice(5,7))-1;selectedDay=todayWIB;}}>Hari ini</button><button class="icon-button rotate-180" aria-label="Bulan sebelumnya" onclick={()=>shiftMonth(-1)}><Icon name="chevron" size={18}/></button><button class="icon-button" aria-label="Bulan berikutnya" onclick={()=>shiftMonth(1)}><Icon name="chevron" size={18}/></button></div></div><div class="calendar-weekdays">{#each ['Sen','Sel','Rab','Kam','Jum','Sab','Min'] as day}<span>{day}</span>{/each}</div><div class="calendar-days">{#each days as d}<button class="calendar-day" class:outside={!d.current} class:today={d.key===todayWIB} class:selected={d.key===selectedDay} aria-label={d.key+', '+calendarRides.filter(r=>dateKey(r.starts_at)===d.key).length+' gowes'} aria-pressed={d.key===selectedDay} onclick={()=>selectedDay=d.key}><span class="day-number">{d.day}</span>{#each calendarRides.filter(r=>dateKey(r.starts_at)===d.key).slice(0,2) as ride}<span class="calendar-event" class:completed={ride.status==='completed'}>{ride.title}</span>{/each}{#if calendarRides.filter(r=>dateKey(r.starts_at)===d.key).length>2}<small>+{calendarRides.filter(r=>dateKey(r.starts_at)===d.key).length-2} lainnya</small>{/if}</button>{/each}</div><div class="calendar-legend"><span><i></i>Gowes terjadwal</span><span><i class="done"></i>Perjalanan selesai</span></div></section><aside class="agenda-card calendar-agenda"><span class="eyebrow">AGENDA HARI INI</span><h2>{dateLabel((selectedDay||todayWIB)+'T05:00:00Z',true)}</h2>{#if dayRides.length}{#each dayRides as ride}<button class="day-ride" onclick={()=>openDetail(ride.id)}><span class="pace-badge">{timeLabel(ride.starts_at)}</span><h3>{ride.title}</h3><p><Icon name="pin" size={14}/>{ride.meeting_point}</p><span class="text-button">Lihat rencana<Icon name="arrow" size={15}/></span></button>{/each}{:else}<div class="agenda-empty"><Icon name="sun" size={30}/><p>Hari yang masih lapang.</p><span>Jadikan hari ini awal cerita baru.</span></div>{/if}<button class="btn btn-primary full mt-5" onclick={openCreate}><Icon name="plus" size={16}/>Buat gowes</button></aside></div>
         {:else if view==='profile'}
           <div class="page-heading"><div><span class="eyebrow">THE PERSON BEHIND THE PEDALS</span><h1>Kenalan lebih dekat.</h1><p>Biar teman searah tahu siapa yang akan datang ke titik kumpul.</p></div></div>
-          <div class="profile-layout"><section class="profile-card"><div class="profile-card-header"><span class="avatar large">{initials(user.name)}</span><div><h2>{user.name}</h2><p>{user.email}</p></div></div><form class="form-stack" onsubmit={saveProfile}><label>Nama lengkap<input bind:value={profileName} required minlength="2" maxlength="60" autocomplete="name"/></label><div class="form-row"><label>Kota asal<input bind:value={profileCity} maxlength="80" placeholder="Misalnya: Bogor"/></label><label>Sepeda yang dipakai<select bind:value={profileBike}>{#each ['Road bike','MTB','Gravel','Folding bike','Hybrid','Lainnya'] as bike}<option>{bike}</option>{/each}</select></label></div><label>Tentang kamu<textarea rows="3" maxlength="300" bind:value={profileBio} placeholder="Gowes santai, pantang pulang sebelum ngopi."></textarea></label>{#if profileError}<p class="error-box" role="alert">{profileError}</p>{/if}<button class="btn btn-primary" disabled={profileBusy}>{profileBusy?'Menyimpan…':'Simpan profil'}<Icon name="check" size={17}/></button></form></section><section class="profile-card"><span class="stat-icon mb-5"><Icon name="lock" size={22}/></span><h2>Ganti password</h2><p class="muted text-sm mt-2 mb-6">Gunakan minimal 12 karakter. Mengganti password akan mengeluarkan sesi di perangkat lain.</p><form class="form-stack" onsubmit={changePassword}><label>Password saat ini<input type="password" autocomplete="current-password" bind:value={currentPassword} required maxlength="128"/></label><label>Password baru<input type="password" autocomplete="new-password" bind:value={newPassword} required minlength="12" maxlength="128"/></label>{#if passwordError}<p class="error-box" role="alert">{passwordError}</p>{/if}<button class="btn btn-secondary" disabled={passwordBusy}>{passwordBusy?'Mengganti…':'Perbarui password'}</button></form></section></div>
+          <div class="profile-layout"><section class="profile-card"><div class="profile-card-header"><span class="avatar large">{initials(user.name)}</span><div><h2>{user.name}</h2><p>{user.username?'@'+user.username:'Pilih username untuk akunmu'}</p></div></div><form class="form-stack" onsubmit={saveProfile}><label>Nama lengkap<input bind:value={profileName} required minlength="2" maxlength="60" autocomplete="name"/></label><label>Username<input name="profile-username" autocomplete="username" autocapitalize="none" spellcheck={false} bind:value={profileUsername} required minlength="3" maxlength="32" pattern={String.raw`[A-Za-z0-9][A-Za-z0-9._\-]{2,31}`} placeholder="Misalnya: agung_gowes"/><small>Gunakan username ini untuk masuk. Tanpa spasi, 3–32 karakter.</small></label><label>Email <span class="field-hint">opsional</span><input type="email" name="contact-email" autocomplete="email" bind:value={profileEmail} maxlength="254" placeholder="Boleh dikosongkan"/><small>Tambahkan untuk kontak, atau kosongkan untuk menghapus. Login tetap menggunakan username.</small></label><div class="form-row"><label>Kota asal<input bind:value={profileCity} maxlength="80" placeholder="Misalnya: Bogor"/></label><label>Sepeda yang dipakai<select bind:value={profileBike}>{#each ['Road bike','MTB','Gravel','Folding bike','Hybrid','Lainnya'] as bike}<option>{bike}</option>{/each}</select></label></div><label>Tentang kamu<textarea rows="3" maxlength="300" bind:value={profileBio} placeholder="Gowes santai, pantang pulang sebelum ngopi."></textarea></label>{#if profileError}<p class="error-box" role="alert">{profileError}</p>{/if}<button class="btn btn-primary" disabled={profileBusy}>{profileBusy?'Menyimpan…':'Simpan profil'}<Icon name="check" size={17}/></button></form></section><section class="profile-card"><span class="stat-icon mb-5"><Icon name="lock" size={22}/></span><h2>Ganti password</h2><p class="muted text-sm mt-2 mb-6">Gunakan minimal 12 karakter. Mengganti password akan mengeluarkan sesi di perangkat lain.</p><form class="form-stack" onsubmit={changePassword}><label>Password saat ini<input type="password" autocomplete="current-password" bind:value={currentPassword} required maxlength="128"/></label><label>Password baru<input type="password" autocomplete="new-password" bind:value={newPassword} required minlength="12" maxlength="128"/></label>{#if passwordError}<p class="error-box" role="alert">{passwordError}</p>{/if}<button class="btn btn-secondary" disabled={passwordBusy}>{passwordBusy?'Mengganti…':'Perbarui password'}</button></form></section></div>
         {/if}
         <footer class="app-footer"><span>searah. <span>Good roads. Better company.</span></span><span>Kayuh pelan. Nikmati perjalanan.<Icon name="leaf" size={13}/></span></footer>
       </main>

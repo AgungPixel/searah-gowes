@@ -21,6 +21,17 @@ export function emailField(data: Record<string, unknown>) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ValidationError('Alamat email belum valid.');
   return email;
 }
+export function optionalEmailField(data: Record<string, unknown>) {
+  if (data.email === null || (typeof data.email === 'string' && data.email.trim() === '')) return null;
+  return emailField(data);
+}
+export function usernameField(data: Record<string, unknown>) {
+  if (typeof data.username !== 'string') throw new ValidationError('Isi username untuk akunmu.');
+  const username = data.username.trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username))
+    throw new ValidationError('Username harus 3–32 karakter: huruf, angka, titik, garis bawah, atau tanda hubung. Awali dengan huruf atau angka.');
+  return username;
+}
 export function passwordField(data: Record<string, unknown>) {
   const password = data.password;
   if (typeof password !== 'string' || password.length < 12 || password.length > 128)

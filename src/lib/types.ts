@@ -1,5 +1,5 @@
 export interface User {
-  id: string; name: string; email: string; city: string; bike_type: string; bio: string;
+  id: string; name: string; username: string | null; email: string | null; city: string; bike_type: string; bio: string;
 }
 export interface Ride {
   id: string; organizer_id: string; organizer_name: string; title: string;

@@ -8,9 +8,10 @@ const proxy=await getPlatformProxy({configPath:'wrangler.jsonc'});
 try{
   const db=proxy.env.DB;
   const passwordHash=await hashPassword('GowesBareng!2026',proxy.env.AUTH_SECRET);
-  const people=[['contoh-owner','Teman Gowes','demo@searah.local'],['contoh-raka','Raka Pratama','raka@contoh.local'],['contoh-dian','Dian Putri','dian@contoh.local']];
-  for(const [id,name,email]of people)await db.prepare(`INSERT INTO users(id,name,email,password_hash,city,bike_type) VALUES(?,?,?,?,?,?)
-    ON CONFLICT(id) DO UPDATE SET password_hash=excluded.password_hash`).bind(id,name,email,passwordHash,'Bogor','Road bike').run();
+  const people=[['contoh-owner','Teman Gowes','demogowes'],['contoh-raka','Raka Pratama','rakagowes'],['contoh-dian','Dian Putri','diangowes']];
+  for(const [id,name,username]of people)await db.prepare(`INSERT INTO users(id,account_key,name,username,password_hash,city,bike_type) VALUES(?,?,?,?,?,?,?)
+    ON CONFLICT(id) DO UPDATE SET password_hash=excluded.password_hash,username=COALESCE(users.username,excluded.username)`)
+    .bind(id,id,name,username,passwordHash,'Bogor','Road bike').run();
   const titles=['Sentul morning loop','Ngopi tipis, gowes santai','Menjemput pagi di Puncak','City ride: keliling Bogor'];
   for(let i=0;i<titles.length;i++){
     const id='contoh-ride-'+i;
@@ -24,5 +25,5 @@ try{
     ]);
     for(const [pid]of people)if(pid!==owner)await db.prepare('INSERT INTO participants(ride_id,user_id) VALUES(?,?)').bind(id,pid).run();
   }
-  console.log('\nData contoh lokal siap.\nEmail: demo@searah.local\nPassword: GowesBareng!2026\nJalankan npm run dev untuk membuka planner.');
+  console.log('\nData contoh lokal siap.\nUsername: demogowes\nPassword: GowesBareng!2026\nJalankan npm run dev untuk membuka planner.');
 }finally{await proxy.dispose();}

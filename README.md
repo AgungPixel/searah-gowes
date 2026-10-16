@@ -4,6 +4,8 @@ Website planner gowes berbahasa Indonesia dengan **Svelte 5, SvelteKit 2, Tailwi
 
 Desain krem, hijau gelap, dan lime; responsif untuk desktop maupun ponsel. Font memakai font sistem, ilustrasi SVG tersedia di source, dan aplikasi tidak memerlukan API peta berbayar.
 
+Pendaftaran sekarang cukup dengan **nama, username, dan password**. Email opsional dan bisa ditambahkan atau dihapus dari profil. Untuk memperbarui instalasi yang sudah berjalan, ikuti `UPDATE_USERNAME.md` agar migrasi tambahan diterapkan sebelum deploy.
+
 ## 1. Coba di PC
 
 Gunakan **Node.js 24 LTS** (minimal 22.12) dan npm. Perintah berikut juga bisa dipakai di Fish.
@@ -25,7 +27,9 @@ Saat `npm run dev` pertama kali dijalankan, proyek otomatis:
 
 Tidak perlu login Cloudflare, memasang Docker, atau membuat akun layanan database untuk mencoba secara lokal. Internet dibutuhkan untuk mengunduh dependensi saat instalasi pertama.
 
-Klik **Buat akun**, masukkan nama, email, dan password minimal 12 karakter. Akun dan data langsung disimpan di database lokal. Email berfungsi sebagai identitas login; proyek ini belum mengirim email verifikasi.
+Klik **Buat akun**, masukkan nama, username, dan password minimal 12 karakter. Username unik, 3–32 karakter, diawali huruf/angka, dan boleh memakai titik, garis bawah, atau tanda hubung tanpa spasi. Huruf besar/kecil dianggap sama. Akun dan data langsung disimpan di database lokal. Email tidak diminta saat mendaftar; tambah atau hapus kapan saja lewat **Profil saya**. Email belum diverifikasi dan belum digunakan untuk pemulihan password.
+
+Akun dari versi sebelumnya tetap bisa masuk memakai email dan password lama sampai pemiliknya menentukan username di profil. Sesudah username tersimpan, gunakan username tersebut untuk login. Migrasi mempertahankan ID akun, password, sesi, dan relasi perjalanan.
 
 **Database lokal tetap ada setelah server dimatikan** di `.wrangler/state`. Folder ini bukan bagian source yang di-push ke GitHub. Data lokal dan produksi adalah dua database terpisah; deploy tidak memindahkan akun atau jadwal lokal.
 
@@ -41,7 +45,7 @@ npm run dev
 
 | Akun contoh lokal | Nilai |
 | --- | --- |
-| Email | `demo@searah.local` |
+| Username | `demogowes` |
 | Password | `GowesBareng!2026` |
 
 Seed hanya mengakses database lokal melalui `getPlatformProxy`, membuat empat jadwal contoh mendatang dan tiga akun contoh, serta bisa dijalankan ulang. Jadwal contoh yang sudah ada tidak diubah; password akun contoh diatur ulang saat seed dijalankan. Jangan gunakan kredensial contoh untuk akun pribadi.
@@ -50,7 +54,7 @@ Seed hanya mengakses database lokal melalui `getPlatformProxy`, membuat empat ja
 
 | Area | Kemampuan |
 | --- | --- |
-| Akun | Daftar, masuk, keluar, ganti password, sesi 14 hari |
+| Akun | Daftar/login dengan username, keluar, ganti password, sesi 14 hari |
 | Dashboard | Gowes berikutnya, agenda pribadi, jumlah gowes dan jarak perjalanan selesai |
 | Jelajahi | Pencarian judul/kota/penyelenggara; filter pace, medan, dan status |
 | Rencana gowes | Buat, ubah, batalkan, tandai selesai, dan hapus |
@@ -59,7 +63,7 @@ Seed hanya mengakses database lokal melalui `getPlatformProxy`, membuat empat ja
 | Kalender | Tampilan bulanan untuk gowes yang kamu ikuti; ekspor `.ics` |
 | Persiapan | Checklist pribadi yang tersimpan terpisah untuk setiap peserta dan gowes |
 | Obrolan | Peserta mengirim pesan; penulis atau penyelenggara dapat menghapusnya |
-| Profil | Nama, kota, jenis sepeda, bio |
+| Profil | Nama, username, email opsional, kota, jenis sepeda, bio |
 | Bagikan | Salin tautan detail; teman perlu masuk agar bisa melihatnya |
 
 Semua akun yang masuk bisa menemukan seluruh jadwal di komunitas ini. Saat ini belum ada grup privat atau undangan khusus.
@@ -224,7 +228,7 @@ wrangler.jsonc          Binding database dan konfigurasi Pages
 
 | Tabel | Isi |
 | --- | --- |
-| `users` | Profil dan hash password; email unik |
+| `users` | Username unik, email opsional unik jika diisi, profil, dan hash password |
 | `sessions` | Hash token sesi dan masa berlaku |
 | `rides` | Jadwal, detail, kapasitas, dan status gowes |
 | `participants` | Relasi peserta dengan gowes |
@@ -245,7 +249,7 @@ API memeriksa origin untuk operasi yang mengubah data, memakai query berparamete
 
 Fitur yang **belum diimplementasikan**: email verifikasi, reset password lewat email, OAuth/Google login, unggah foto, peta interaktif, rekaman GPS, grup privat, dan notifikasi WhatsApp/email/push. Tautan rute dan ekspor kalender sudah bisa dipakai tanpa integrasi tersebut.
 
-Akun komunitas menggunakan email/password tanpa verifikasi email. Untuk komunitas publik besar, tambahkan verifikasi email, pemulihan password, dan pengendalian bot sesuai kebutuhan sebelum membuka pendaftaran secara luas. Kinerja password hashing di runtime lokal tidak membuktikan bahwa semua kuota CPU paket Cloudflare produksi akan tercukupi; periksa log runtime saat uji deploy.
+Akun komunitas menggunakan username/password. Email opsional di profil belum diverifikasi dan tidak dipakai sebagai identitas login akun baru. Untuk komunitas publik besar, tambahkan pemulihan password dan pengendalian bot sesuai kebutuhan. Kinerja password hashing di runtime lokal tidak membuktikan bahwa semua kuota CPU paket Cloudflare produksi akan tercukupi; periksa log runtime saat uji deploy.
 
 Hasil pengujian source tersedia di `VALIDATION.md`. Deployment ke akun Cloudflare pribadi belum dilakukan dalam pembuatan proyek ini.
 

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { hashPassword, verifyPassword, digest } from '../src/lib/server/auth.ts';
-import { ValidationError, rideFields, passwordField } from '../src/lib/server/validation.ts';
+import { ValidationError, rideFields, passwordField, usernameField, optionalEmailField } from '../src/lib/server/validation.ts';
 import { toUTC, localInput, dateKey, calendarText } from '../src/lib/format.ts';
 import type { Ride } from '../src/lib/types.ts';
 
@@ -38,6 +38,16 @@ test('WIB date conversion works regardless of computer timezone', ()=> {
   assert.equal(toUTC('2026-10-18T06:00'),'2026-10-17T23:00:00.000Z');
   assert.equal(localInput('2026-10-17T23:00:00.000Z'),'2026-10-18T06:00');
   assert.equal(dateKey('2026-10-17T23:00:00Z'),'2026-10-18');
+});
+test('usernames are normalized and emails can be added or removed without fake addresses', ()=> {
+  assert.equal(usernameField({username:'  Agung_Gowes  '}),'agung_gowes');
+  for(const username of ['ab','nama dengan spasi','@agung','agung@email.test','a'.repeat(33),'agung🚲'])
+    assert.throws(()=>usernameField({username}),ValidationError);
+  assert.equal(optionalEmailField({email:''}),null);
+  assert.equal(optionalEmailField({email:'   '}),null);
+  assert.equal(optionalEmailField({email:null}),null);
+  assert.equal(optionalEmailField({email:' AGUNG@example.test '}),'agung@example.test');
+  for(const email of ['invalid',42,undefined])assert.throws(()=>optionalEmailField({email}),ValidationError);
 });
 test('calendar export escapes event text and folds Unicode at 75 bytes', ()=> {
   const value=calendarText({...ride,id:'ride-test',title:'Gowes, pagi; bareng',description:'Cerita\n'+('🚲'.repeat(70))} as Ride);

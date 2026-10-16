@@ -36,7 +36,7 @@ export async function createSession(db: D1Database, userId: string, cookies: Coo
 }
 export async function currentUser(db: D1Database, token?: string): Promise<User | null> {
   if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
-  return db.prepare(`SELECT u.id,u.name,u.email,u.city,u.bike_type,u.bio FROM users u
+  return db.prepare(`SELECT u.id,u.name,u.username,u.email,u.city,u.bike_type,u.bio FROM users u
     JOIN sessions s ON s.user_id=u.id WHERE s.token_hash=? AND s.expires_at>unixepoch()`)
     .bind(digest(token)).first<User>();
 }

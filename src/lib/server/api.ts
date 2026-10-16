@@ -2,9 +2,9 @@ import { error, json, isHttpError, type RequestEvent } from '@sveltejs/kit';
 import { randomUUID } from 'node:crypto';
 import { CHECKLIST, type Ride, type User, type Participant, type RideNote } from '$lib/types';
 import { COOKIE_NAME, createSession, digest, hashPassword, verifyPassword } from './auth';
-import { ValidationError, emailField, passwordField, textField, enumField, rideFields } from './validation';
+import { ValidationError, optionalEmailField, usernameField, passwordField, textField, enumField, rideFields } from './validation';
 
-const USER_COLUMNS = 'id,name,email,city,bike_type,bio';
+const USER_COLUMNS = 'id,name,username,email,city,bike_type,bio';
 const RIDE_QUERY = `SELECT r.*, u.name AS organizer_name,
   (SELECT COUNT(*) FROM participants p WHERE p.ride_id=r.id) AS participant_count,
   EXISTS(SELECT 1 FROM participants p WHERE p.ride_id=r.id AND p.user_id=?) AS joined
@@ -61,7 +61,8 @@ export async function handleApi(event: RequestEvent) {
     if (/RIDE_FULL/.test(message)) return json({ error: 'Kuota gowes sudah penuh.' }, { status: 409 });
     if (/RIDE_CLOSED|RIDE_STARTED/.test(message)) return json({ error: 'Pendaftaran sudah ditutup.' }, { status: 409 });
     if (/CAPACITY_TOO_SMALL/.test(message)) return json({ error: 'Kuota tidak boleh kurang dari jumlah peserta saat ini.' }, { status: 409 });
-    if (/UNIQUE constraint failed: users.email/.test(message)) return json({ error: 'Email sudah digunakan. Silakan masuk.' }, { status: 409 });
+    if (/UNIQUE constraint failed: users.username/.test(message)) return json({ error: 'Username sudah digunakan. Pilih username lain.' }, { status: 409 });
+    if (/UNIQUE constraint failed: users.email/.test(message)) return json({ error: 'Email sudah dipakai akun lain.' }, { status: 409 });
     if (/UNIQUE constraint failed: participants/.test(message)) return json({ error: 'Kamu sudah terdaftar pada gowes ini.' }, { status: 409 });
     console.error('Gowes API:', message);
     return json({ error: 'Data belum dapat diproses. Coba lagi.' }, { status: 500 });
@@ -83,22 +84,28 @@ async function route(event: RequestEvent): Promise<Response> {
     const authSecret = secret(event);
     await limit(db, `auth:ip:${digest(ip)}`, 30);
     const data = await body(event);
-    const email = emailField(data);
-    await limit(db, `auth:email:${digest(email)}`, 10);
     let userId: string;
     if (path === 'auth/register') {
+      const username = usernameField(data);
+      await limit(db, `auth:identity:${digest(username)}`, 10);
       const name = textField(data, 'name', 2, 60);
       const password = passwordField(data);
       const passwordHash = await hashPassword(password, authSecret);
       userId = randomUUID();
-      await db.prepare('INSERT INTO users(id,name,email,password_hash) VALUES(?,?,?,?)').bind(userId, name, email, passwordHash).run();
+      // No email is requested or invented for a new account.
+      await db.prepare('INSERT INTO users(id,account_key,name,username,password_hash) VALUES(?,?,?,?,?)')
+        .bind(userId, userId, name, username, passwordHash).run();
     } else {
+      // Legacy email payloads remain valid only for accounts without a username.
+      const identity = textField({ identity: data.username ?? data.email }, 'identity', 1, 254).toLowerCase();
+      await limit(db, `auth:identity:${digest(identity)}`, 10);
       const password = data.password;
       if (typeof password !== 'string' || password.length < 1 || password.length > 128) error(400, 'Isi password yang valid.');
-      const account = await db.prepare('SELECT id,password_hash FROM users WHERE email=?').bind(email).first<{ id: string; password_hash: string }>();
+      const account = await db.prepare('SELECT id,password_hash FROM users WHERE username=? OR (username IS NULL AND email=?)')
+        .bind(identity, identity).first<{ id: string; password_hash: string }>();
       const dummy = 'scrypt-v1$00000000000000000000000000000000$' + '0'.repeat(64);
       const valid = await verifyPassword(password, account?.password_hash ?? dummy, authSecret);
-      if (!account || !valid) error(401, 'Email atau password belum cocok.');
+      if (!account || !valid) error(401, 'Username atau password belum cocok. Akun lama dapat memakai email sampai username diatur.');
       userId = account.id;
     }
     // Rotate the current session, including after signing into a different account.
@@ -120,7 +127,10 @@ async function route(event: RequestEvent): Promise<Response> {
     const city = textField(data, 'city', 0, 80);
     const bike = enumField(data, 'bike_type', ['Road bike','MTB','Gravel','Folding bike','Hybrid','Lainnya']);
     const bio = textField(data, 'bio', 0, 300);
-    await db.prepare('UPDATE users SET name=?,city=?,bike_type=?,bio=? WHERE id=?').bind(name, city, bike, bio, user.id).run();
+    const username = data.username === undefined && user.username ? user.username : usernameField(data);
+    const email = data.email === undefined ? user.email : optionalEmailField(data);
+    await db.prepare('UPDATE users SET name=?,username=?,email=?,city=?,bike_type=?,bio=? WHERE id=?')
+      .bind(name, username, email, city, bike, bio, user.id).run();
     return json({ user: await db.prepare(`SELECT ${USER_COLUMNS} FROM users WHERE id=?`).bind(user.id).first<User>() });
   }
   if (path === 'auth/password' && method === 'PATCH') {
