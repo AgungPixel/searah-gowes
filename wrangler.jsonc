@@ -1,0 +1,23 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "gowes-bareng",
+	"pages_build_output_dir": ".svelte-kit/cloudflare",
+	"compatibility_date": "2026-10-01",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "gowes-bareng-db",
+			"database_id": "8e1e3abd-548d-4dd7-b638-eda095f7b3b0",
+			"preview_database_id": "DB",
+			"migrations_dir": "migrations"
+		},
+		{
+			"binding": "gowes_bareng_db",
+			"database_name": "gowes-bareng-db",
+			"database_id": "8e1e3abd-548d-4dd7-b638-eda095f7b3b0"
+		}
+	]
+}
